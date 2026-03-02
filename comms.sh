@@ -897,17 +897,17 @@ print(cell_id)
 " "$COMMS_AGENT" "$channel" "$claim" "$confidence"
           ;;
         refute)
-          # comms hive refute <belief_id> <reason> [correction]
-          local belief_id="$1" reason="$2" correction="${3:-""}"
+          # comms hive refute <belief_id> <reason> [correction] [channel]
+          local belief_id="$1" reason="$2" correction="${3:-""}" channel="${4:-general}"
           python -c "
 import sys
 sys.path.insert(0, '${COMMS_DIR}')
 from hive import HiveBoard
 from hive.coordination.beliefs import refute_belief
 board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
-cell_id = refute_belief(board, belief_id=sys.argv[1], from_agent=sys.argv[2], channel='general', reason=sys.argv[3], correction=sys.argv[4])
+cell_id = refute_belief(board, belief_id=sys.argv[1], from_agent=sys.argv[2], channel=sys.argv[3], reason=sys.argv[4], correction=sys.argv[5])
 print(cell_id)
-" "$belief_id" "$COMMS_AGENT" "$reason" "$correction"
+" "$belief_id" "$COMMS_AGENT" "$channel" "$reason" "$correction"
           ;;
         *)
           cat <<'HIVEEOF'

@@ -76,7 +76,7 @@ def run_server(db_path: str = "hive.db", channels_dir: str = "channels"):
             _write_message(_make_response(request_id, {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "hive", "version": "1.0.0"},
+                "serverInfo": {"name": "hive", "version": "1.1.0"},
             }))
 
         elif method == "notifications/initialized":

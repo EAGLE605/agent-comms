@@ -29,3 +29,28 @@ class TestEvolution:
         signals = evolve(board)
         events = [s["event"] for s in signals]
         assert "high_failure_rate" in events
+
+    def test_evolve_detects_refuted_beliefs(self):
+        board = _make_board()
+        from hive.coordination.beliefs import assert_belief, refute_belief
+        bid = assert_belief(
+            board,
+            from_agent="claude/1",
+            channel="general",
+            claim="Sequential requests cause 1102",
+            confidence=0.9,
+        )
+        refute_belief(
+            board,
+            belief_id=bid,
+            from_agent="gemini/1",
+            channel="general",
+            reason="Connection pooling issue",
+            correction="Use persistent connections",
+        )
+        signals = evolve(board)
+        events = [s["event"] for s in signals]
+        assert "refuted_beliefs" in events
+        refuted_signal = next(s for s in signals if s["event"] == "refuted_beliefs")
+        assert refuted_signal["payload"]["count"] == 1
+        assert refuted_signal["payload"]["corrections"][0]["correction"] == "Use persistent connections"
