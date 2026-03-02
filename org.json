@@ -37,6 +37,8 @@
   "agents": {
     "claude": {
       "type": "Claude Code",
+      "cli": "claude",
+      "version": "2.1.63",
       "strengths": [
         "Architecture and system design",
         "Complex multi-file refactors",
@@ -55,6 +57,8 @@
     },
     "gemini": {
       "type": "Gemini CLI",
+      "cli": "gemini",
+      "version": "0.31.0",
       "strengths": [
         "Fast codebase investigation and grep",
         "Bulk data analysis (CSV, DuckDB, large datasets)",
@@ -77,6 +81,8 @@
     },
     "openclaw": {
       "type": "OpenClaw",
+      "cli": "openclaw",
+      "version": "2026.2.26",
       "strengths": [
         "Orchestration and automation",
         "System event broadcasting"
@@ -88,8 +94,27 @@
       "best_for": ["orchestration", "automation"],
       "cost": "low"
     },
+    "codex": {
+      "type": "OpenAI Codex CLI",
+      "cli": "codex",
+      "version": "0.101.0",
+      "strengths": [
+        "Fast code generation",
+        "OpenAI model access (GPT-4o, o3)",
+        "One-shot code tasks",
+        "Sandboxed execution"
+      ],
+      "weaknesses": [
+        "Less architectural reasoning than Claude",
+        "No persistent session context",
+        "Newer CLI, less battle-tested"
+      ],
+      "best_for": ["code-generation", "one-shot-tasks", "openai-models"],
+      "cost": "medium"
+    },
     "dispatcher": {
       "type": "Claude Dispatcher (batch)",
+      "cli": "node cli.js --print",
       "strengths": [
         "Offline batch execution",
         "Scheduled task queuing",

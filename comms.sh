@@ -455,11 +455,21 @@ echo ""
 openclaw
 BOOTEOF
           ;;
+        codex)
+          cat >> "$boot_script" <<BOOTEOF
+
+# Launch OpenAI Codex CLI
+echo "Launching Codex CLI..."
+echo ""
+codex
+BOOTEOF
+          ;;
         *)
           cat >> "$boot_script" <<BOOTEOF
 
-# Unknown agent type — drop to interactive shell
+# Unknown agent type '${agent_type}' -- drop to interactive shell
 echo "Agent type '${agent_type}' has no known CLI. Dropping to shell."
+echo "Known types: claude, gemini, openclaw, codex"
 echo "Set up manually, then: comms clock-in '${role}'"
 exec bash -l
 BOOTEOF
