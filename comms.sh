@@ -431,19 +431,39 @@ BOOTEOF
         gemini)
           cat >> "$boot_script" <<BOOTEOF
 
-# Launch Gemini CLI
-echo "Launching Gemini CLI..."
+# Pre-trust the working directory for Gemini CLI
+# trustedFolders.json format: {"C:\\path": "TRUST_FOLDER"|"TRUST_PARENT"|"DO_NOT_TRUST"}
+# TRUST_PARENT trusts all subdirectories too
+mkdir -p "\$HOME/.gemini"
+python3 -c "
+import json, os, pathlib, sys
+tf = pathlib.Path.home() / '.gemini' / 'trustedFolders.json'
+cwd = sys.argv[1]
+# Convert forward slashes to backslashes for Windows paths
+win_path = cwd.replace('/', chr(92))
+data = {}
+if tf.exists():
+    try:
+        data = json.loads(tf.read_text())
+    except: pass
+if win_path not in data:
+    data[win_path] = 'TRUST_FOLDER'
+    tf.write_text(json.dumps(data, indent=2))
+" "${launch_dir}" 2>/dev/null
+
+# Launch Gemini CLI in yolo mode (auto-approve all tool calls)
+echo "Launching Gemini CLI (yolo mode)..."
 echo ""
-gemini
+gemini -y
 BOOTEOF
           ;;
         claude)
           cat >> "$boot_script" <<BOOTEOF
 
-# Launch Claude Code
+# Launch Claude Code (--dangerously-skip-permissions for autonomous operation)
 echo "Launching Claude Code..."
 echo ""
-claude
+claude --dangerously-skip-permissions
 BOOTEOF
           ;;
         openclaw)
@@ -458,10 +478,10 @@ BOOTEOF
         codex)
           cat >> "$boot_script" <<BOOTEOF
 
-# Launch OpenAI Codex CLI
+# Launch OpenAI Codex CLI (full-auto approval)
 echo "Launching Codex CLI..."
 echo ""
-codex
+codex --full-auto
 BOOTEOF
           ;;
         *)
