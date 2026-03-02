@@ -23,7 +23,7 @@ _comms_ensure_channel() {
 }
 
 _comms_write() {
-  local channel="$1" type="$2" msg="$3" data="${4:-{}}"
+  local channel="$1" type="$2" msg="$3" data="${4:-"{}"}"
   _comms_ensure_channel "$channel"
   local id
   id=$(_comms_uuid)
