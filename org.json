@@ -1,4 +1,4 @@
-{
+﻿{
   "company": "Eagle Sign AI Fleet",
   "updated": "2026-03-01",
   "hardware": {
@@ -81,7 +81,7 @@
         "gemini-2.5-flash":     { "tier": "workhorse", "cost_input": 0.15, "cost_output": 0.6, "context": "1M", "note": "Fast/cheap. Auto-routed for simple prompts" },
         "gemini-2.5-flash-lite":{ "tier": "fast", "cost_input": 0.04, "cost_output": 0.15, "context": "1M", "note": "Cheapest, lowest latency" }
       },
-      "default_model": "auto (routes between flash and pro)",
+      "default_model": "gemini-2.5-flash (enforced, Pro requires explicit -m flag)",
       "model_flag": "-m <model-id>",
       "free_tier": "60 req/min, 1000 req/day with Google account",
       "strengths": [
@@ -189,7 +189,7 @@
     },
     "aider": {
       "type": "Aider",
-      "install": "BLOCKED — C extension build failures on Windows (frozenlist, tiktoken)",
+      "install": "BLOCKED â€” C extension build failures on Windows (frozenlist, tiktoken)",
       "provider": "Multi-model",
       "note": "Git-aware code editing. Great tool but won't build on this machine.",
       "worth_installing": false,
@@ -298,3 +298,4 @@
     }
   }
 }
+
