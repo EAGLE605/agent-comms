@@ -4,5 +4,6 @@ channels/*.jsonl
 # Keep the directory itself
 !channels/.gitkeep
 
-# Boot scripts are auto-generated per hire, ephemeral
+# Boot scripts and PID files are auto-generated per hire, ephemeral
 .boot-*.sh
+.pid-*

@@ -379,6 +379,7 @@ for m in msgs[-${last}:]:
 
       # Write boot script for the new terminal
       local boot_script="${COMMS_DIR}/.boot-${agent_id//\//-}.sh"
+      local pid_file="${COMMS_DIR}/.pid-${agent_id//\//-}"
       cat > "$boot_script" <<BOOTEOF
 #!/usr/bin/env bash
 # Auto-generated boot script for ${agent_id}
@@ -386,6 +387,19 @@ for m in msgs[-${last}:]:
 
 export COMMS_AGENT="${agent_id}"
 source C:/tools/agent-comms/comms.sh
+
+# Write PID so fire command can close this terminal
+echo \$\$ > "${pid_file}"
+
+# Clean shutdown on SIGTERM (sent by comms fire)
+_cleanup() {
+  echo ""
+  echo ">>> TERMINATED by fleet command <<<"
+  comms clock-out "fired"
+  rm -f "${pid_file}"
+  exit 0
+}
+trap _cleanup TERM INT
 
 echo ""
 echo "========================================"
@@ -452,15 +466,16 @@ BOOTEOF
           ;;
       esac
 
-      # Keep terminal open after agent exits
-      cat >> "$boot_script" <<'BOOTEOF'
+      # Clean exit after agent CLI finishes
+      cat >> "$boot_script" <<BOOTEOF
 
-# Agent CLI exited — clock out and hold terminal
+# Agent CLI exited -- clock out and clean up
 echo ""
 echo "Agent CLI exited. Clocking out..."
 comms clock-out "CLI exited"
-echo "Press Enter to close this terminal..."
-read -r
+rm -f "${pid_file}"
+echo "Terminal closing in 3 seconds..."
+sleep 3
 BOOTEOF
 
       chmod +x "$boot_script"
@@ -489,16 +504,102 @@ BOOTEOF
       ;;
 
     fire)
-      # comms fire <agent/session> [reason]
+      # comms fire <agent/session> [reason] — document, terminate, close terminal
       local agent_id="$1" reason="${2:-no longer needed}"
       if [[ -z "$agent_id" ]]; then
         echo "usage: comms fire <agent/session> [reason]"
         return 1
       fi
+
+      # 1. Capture performance summary before termination
+      echo ""
+      echo "  === TERMINATION REPORT: ${agent_id} ==="
+      local perf_summary
+      perf_summary=$(python -c "
+import json, glob
+from collections import defaultdict
+stats = {'results': 0, 'errors': 0, 'tasks': 0, 'channels': set(), 'messages': []}
+for f in glob.glob('${CHANNELS_DIR}/*.jsonl'):
+    with open(f) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line: continue
+            try:
+                m = json.loads(line)
+                if '${agent_id}' not in m.get('from', ''): continue
+                mtype = m.get('type', '')
+                ch = m.get('channel', '')
+                if ch != 'roster': stats['channels'].add(ch)
+                if mtype == 'result': stats['results'] += 1
+                elif mtype == 'error': stats['errors'] += 1
+                elif mtype == 'task': stats['tasks'] += 1
+                stats['messages'].append(m.get('msg', '')[:80])
+            except: pass
+
+total = stats['results'] + stats['errors']
+rate = f\"{(stats['results']/total*100):.0f}%\" if total > 0 else 'n/a'
+channels = ', '.join(sorted(stats['channels'])) if stats['channels'] else '(none)'
+print(f'  Results: {stats[\"results\"]}  Errors: {stats[\"errors\"]}  Success rate: {rate}')
+print(f'  Tasks taken: {stats[\"tasks\"]}  Channels: {channels}')
+if stats['messages']:
+    print(f'  Last messages:')
+    for msg in stats['messages'][-5:]:
+        print(f'    - {msg}')
+
+# Output JSON for roster record
+summary = {
+    'results': stats['results'], 'errors': stats['errors'],
+    'tasks': stats['tasks'], 'success_rate': rate,
+    'channels': sorted(stats['channels']) if stats['channels'] else []
+}
+import sys
+print('---JSON---', file=sys.stderr)
+print(json.dumps(summary), file=sys.stderr)
+" 2>/tmp/_comms_fire_data.txt)
+      echo "$perf_summary"
+
+      # 2. Build termination record with full summary
+      local summary_json
+      summary_json=$(grep -A1 '---JSON---' /tmp/_comms_fire_data.txt 2>/dev/null | tail -1)
+      [[ -z "$summary_json" ]] && summary_json="{}"
       local data
-      data=$(python -c "import json,sys;print(json.dumps({'agent':sys.argv[1],'reason':sys.argv[2],'fired_by':sys.argv[3]}))" "$agent_id" "$reason" "$COMMS_AGENT")
+      data=$(printf '%s' "$summary_json" | python -c "
+import json, sys
+summary = json.loads(sys.stdin.read())
+summary['agent'] = sys.argv[1]
+summary['reason'] = sys.argv[2]
+summary['fired_by'] = sys.argv[3]
+print(json.dumps(summary))
+" "$agent_id" "$reason" "$COMMS_AGENT")
       _comms_write "roster" "fire" "FIRED ${agent_id}: ${reason}" "$data"
-      echo "  Terminated: ${agent_id} (${reason})"
+      rm -f /tmp/_comms_fire_data.txt
+
+      # 3. Kill the terminal process (close the window/tab)
+      local pid_file="${COMMS_DIR}/.pid-${agent_id//\//-}"
+      if [[ -f "$pid_file" ]]; then
+        local agent_pid
+        agent_pid=$(cat "$pid_file" 2>/dev/null)
+        if [[ -n "$agent_pid" ]]; then
+          # Send SIGTERM for clean shutdown, then force kill after 3s
+          kill "$agent_pid" 2>/dev/null
+          (
+            sleep 3
+            kill -9 "$agent_pid" 2>/dev/null
+            rm -f "$pid_file"
+          ) &>/dev/null &
+          echo "  >> Terminal closed (PID ${agent_pid})"
+        fi
+        rm -f "$pid_file"
+      else
+        echo "  >> No PID file found (terminal may already be closed)"
+      fi
+
+      # 4. Clean up boot script
+      local boot_script="${COMMS_DIR}/.boot-${agent_id//\//-}.sh"
+      rm -f "$boot_script"
+
+      echo "  >> TERMINATED: ${agent_id} (${reason})"
+      echo ""
       ;;
 
     org)
