@@ -1,0 +1,9 @@
+[project]
+name = "hive-protocol"
+version = "1.0.0"
+description = "HIVE: Hierarchical Inter-agent Virtual Exchange protocol"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+timeout = 30
+testpaths = ["tests"]
