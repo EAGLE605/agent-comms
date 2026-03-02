@@ -25,8 +25,9 @@ _comms_ensure_channel() {
 _comms_write() {
   local channel="$1" type="$2" msg="$3" data="${4:-"{}"}"
   _comms_ensure_channel "$channel"
-  if python -c "
+  if printf '%s' "$data" | python -c "
 import json, uuid, datetime, sys
+data_raw = sys.stdin.read()
 obj = {
     'id': str(uuid.uuid4()),
     'from': sys.argv[1],
@@ -34,11 +35,11 @@ obj = {
     'channel': sys.argv[2],
     'type': sys.argv[3],
     'msg': sys.argv[4],
-    'data': json.loads(sys.argv[5])
+    'data': json.loads(data_raw)
 }
-with open(sys.argv[6], 'a', encoding='utf-8') as f:
+with open(sys.argv[5], 'a', encoding='utf-8') as f:
     f.write(json.dumps(obj, ensure_ascii=False) + '\n')
-" "$COMMS_AGENT" "$channel" "$type" "$msg" "$data" "${CHANNELS_DIR}/${channel}.jsonl" 2>/dev/null; then
+" "$COMMS_AGENT" "$channel" "$type" "$msg" "${CHANNELS_DIR}/${channel}.jsonl" 2>/dev/null; then
     echo "sent to ${channel} [${type}]"
   else
     echo "FAILED to send to ${channel} [${type}] — check data payload" >&2
