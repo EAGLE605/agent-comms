@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HIVE CONTROL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #111214;
+  --panel:      #1a1c20;
+  --panel2:     #202226;
+  --border:     #2a2d33;
+  --border2:    #353840;
+
+  --claude:     #4e9af1;
+  --claude-dim: #1b3a5c;
+  --gemini:     #34c77b;
+  --gemini-dim: #0d3d22;
+  --codex:      #f5a623;
+  --codex-dim:  #3d2900;
+  --default:    #8b8f96;
+  --default-dim:#222427;
+
+  --text:       #e8eaed;
+  --text2:      #9aa0ab;
+  --text3:      #5a6070;
+
+  --yellow:     #f5c518;
+  --green:      #34c77b;
+  --blue:       #4e9af1;
+  --red:        #e05353;
+  --purple:     #9b72f5;
+  --grey:       #8b8f96;
+  --orange:     #f5a623;
+
+  --font-mono:  'Share Tech Mono', 'Courier New', monospace;
+  --font-ui:    'Inter', system-ui, sans-serif;
+
+  --radius:     6px;
+  --radius-lg:  10px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  height: 52px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.topbar-title {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.topbar-subtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 2px;
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border2);
+  flex-shrink: 0;
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fleet-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text2);
+  letter-spacing: 1px;
+}
+
+.health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--grey);
+}
+.health-dot.green  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.health-dot.yellow { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+.health-dot.red    { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+#last-updated {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
+.channel-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.channel-select-wrap label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+#channel-select {
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  outline: none;
+}
+#channel-select:focus { border-color: var(--blue); }
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+#main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: calc(100vh - 52px);
+  overflow: hidden;
+}
+
+/* Top floor: agent workstations */
+#floor {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 2px solid var(--border2);
+  flex-shrink: 0;
+}
+
+/* Bottom half: pipeline + feed */
+#lower {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ============================================================
+   AGENT WORKSTATION CARDS
+   ============================================================ */
+.workstation {
+  background: var(--panel);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.workstation:hover {
+  background: var(--panel2);
+}
+
+/* Colored left border accent */
+.workstation::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--agent-color, var(--grey));
+}
+
+.ws-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ws-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--grey);
+  flex-shrink: 0;
+}
+
+.ws-status-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(52, 199, 123, 0.4);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%   { box-shadow: 0 0 0 0 rgba(52, 199, 123, 0.4); }
+  70%  { box-shadow: 0 0 0 6px rgba(52, 199, 123, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 199, 123, 0); }
+}
+
+.ws-agent-name {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--agent-color, var(--grey));
+  letter-spacing: 1px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-role-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: var(--agent-dim, var(--default-dim));
+  color: var(--agent-color, var(--grey));
+  border: 1px solid var(--agent-color, var(--grey));
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.ws-task-label {
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.ws-task-text {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.4;
+  max-height: 42px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.ws-task-text.none { color: var(--text3); font-style: italic; }
+
+.ws-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.ws-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ws-stat-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--agent-color, var(--grey));
+  line-height: 1;
+}
+
+.ws-stat-label {
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.ws-last-active {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.5px;
+}
+
+.ws-mini-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.ws-feed-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.ws-feed-type {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  min-width: 46px;
+  text-align: center;
+  background: var(--default-dim);
+  color: var(--grey);
+}
+
+.ws-feed-msg {
+  font-size: 10px;
+  color: var(--text3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================================================
+   TASK PIPELINE
+   ============================================================ */
+#pipeline-panel {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.panel-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text3);
+  margin-left: auto;
+}
+
+#pipeline-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pipeline-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.pipeline-col-header {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: var(--radius) var(--radius) 0 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+.col-open   .pipeline-col-header { background: rgba(245,197,24,0.12);  color: var(--yellow); border: 1px solid rgba(245,197,24,0.25);  border-bottom: none; }
+.col-claimed .pipeline-col-header { background: rgba(78,154,241,0.12); color: var(--blue);   border: 1px solid rgba(78,154,241,0.25);  border-bottom: none; }
+.col-complete .pipeline-col-header{ background: rgba(52,199,123,0.12); color: var(--green);  border: 1px solid rgba(52,199,123,0.25);  border-bottom: none; }
+
+.pipeline-col-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 0 0 var(--radius) var(--radius);
+  min-height: 40px;
+}
+
+.col-open    .pipeline-col-cards { background: rgba(245,197,24,0.04); border: 1px solid rgba(245,197,24,0.15); border-top: none; }
+.col-claimed .pipeline-col-cards { background: rgba(78,154,241,0.04); border: 1px solid rgba(78,154,241,0.15); border-top: none; }
+.col-complete .pipeline-col-cards{ background: rgba(52,199,123,0.04); border: 1px solid rgba(52,199,123,0.15); border-top: none; }
+
+.task-card {
+  background: var(--panel2);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  animation: slide-in 0.3s ease;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.task-card-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text2);
+  letter-spacing: 1px;
+}
+
+.task-card-agent {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text3);
+}
+
+.task-card-msg {
+  font-size: 10px;
+  color: var(--text2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task-card-age {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text3);
+}
+
+.pipeline-empty {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text3);
+  text-align: center;
+  padding: 8px;
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   LIVE CELL FEED
+   ============================================================ */
+#feed-panel {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+
+#feed-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 56px 110px 62px 1fr;
+  gap: 0 10px;
+  align-items: center;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  transition: background 0.15s;
+  animation: slide-in 0.25s ease;
+}
+
+.feed-row:hover { background: var(--panel2); }
+
+.feed-ts {
+  color: var(--text3);
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.feed-agent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-type-badge {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.badge-task    { background: rgba(245,197,24,0.15);  color: var(--yellow); }
+.badge-result  { background: rgba(52,199,123,0.15);  color: var(--green); }
+.badge-claim   { background: rgba(78,154,241,0.15);  color: var(--blue); }
+.badge-status  { background: rgba(139,143,150,0.15); color: var(--grey); }
+.badge-signal  { background: rgba(224,83,83,0.15);   color: var(--red); }
+.badge-belief  { background: rgba(155,114,245,0.15); color: var(--purple); }
+.badge-hire    { background: rgba(52,199,123,0.15);  color: var(--green); }
+.badge-fire    { background: rgba(224,83,83,0.15);   color: var(--red); }
+.badge-clock-in  { background: rgba(245,197,24,0.10); color: var(--yellow); }
+.badge-clock-out { background: rgba(139,143,150,0.10); color: var(--grey); }
+.badge-default { background: var(--default-dim); color: var(--grey); }
+
+.feed-msg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text2);
+  font-size: 10px;
+}
+
+/* ============================================================
+   STATS BAR (inside panel headers)
+   ============================================================ */
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 1px;
+}
+
+.stat-pill.open     { background: rgba(245,197,24,0.12); color: var(--yellow); }
+.stat-pill.claimed  { background: rgba(78,154,241,0.12); color: var(--blue); }
+.stat-pill.complete { background: rgba(52,199,123,0.12); color: var(--green); }
+
+/* ============================================================
+   AGENT COLOR UTILITIES (set via JS style.setProperty)
+   ============================================================ */
+/* Applied per-card via JS */
+
+/* ============================================================
+   EMPTY / LOADING STATES
+   ============================================================ */
+.loading-msg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+  text-align: center;
+  padding: 20px;
+  letter-spacing: 2px;
+}
+
+/* ============================================================
+   CHANNEL PILLS (optional bottom bar)
+   ============================================================ */
+#channels-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 32px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.ch-pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 9px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  white-space: nowrap;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.ch-pill:hover, .ch-pill.active {
+  background: rgba(78,154,241,0.12);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.ch-pill-count {
+  margin-left: 4px;
+  opacity: 0.6;
+}
+</style>
+</head>
+<body>
+
+<!-- ====================================================================
+     TOP BAR
+     ==================================================================== -->
+<div id="topbar">
+  <div class="topbar-title">HIVE CONTROL</div>
+  <div class="topbar-subtitle">AGENT FLEET MONITOR</div>
+  <div class="topbar-sep"></div>
+  <div class="fleet-health">
+    <div class="health-dot" id="health-dot"></div>
+    <span id="health-label">CONNECTING</span>
+  </div>
+  <div class="topbar-right">
+    <div class="channel-select-wrap">
+      <label>CHANNEL</label>
+      <select id="channel-select" onchange="onChannelChange()">
+        <option value="signx-intel">signx-intel</option>
+      </select>
+    </div>
+    <div id="last-updated">--:--:--</div>
+  </div>
+</div>
+
+<!-- Channel pills bar -->
+<div id="channels-bar">
+  <div class="loading-msg" style="padding:0;font-size:9px;">loading channels...</div>
+</div>
+
+<!-- ====================================================================
+     MAIN CONTENT
+     ==================================================================== -->
+<div id="main">
+  <!-- TOP: AGENT WORKSTATIONS -->
+  <div id="floor">
+    <div class="loading-msg" style="grid-column:1/-1">INITIALIZING WORKSTATIONS...</div>
+  </div>
+
+  <!-- BOTTOM: PIPELINE + FEED -->
+  <div id="lower">
+
+    <!-- LEFT: TASK PIPELINE -->
+    <div id="pipeline-panel">
+      <div class="panel-header">
+        <div class="panel-title">TASK PIPELINE</div>
+        <div id="pipeline-stats" style="display:flex;gap:6px;margin-left:auto;"></div>
+      </div>
+      <div id="pipeline-body">
+        <div class="loading-msg">LOADING TASKS...</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: LIVE CELL FEED -->
+    <div id="feed-panel">
+      <div class="panel-header">
+        <div class="panel-title">LIVE CELL FEED</div>
+        <div class="panel-count" id="feed-count">0 cells</div>
+      </div>
+      <div id="feed-body">
+        <div class="loading-msg">LOADING FEED...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ====================================================================
+     JAVASCRIPT
+     ==================================================================== -->
+<script>
+/* ---- Config ---- */
+const API_BASE   = 'http://localhost:7842';
+const REFRESH_MS = 5000;
+
+let currentChannel = 'signx-intel';
+let previousFeedIds = new Set();
+
+/* ---- Agent color map ---- */
+function agentColor(name) {
+  if (!name) return { color: 'var(--grey)', dim: 'var(--default-dim)' };
+  const n = name.toLowerCase();
+  if (n.startsWith('claude'))  return { color: 'var(--claude)',  dim: 'var(--claude-dim)' };
+  if (n.startsWith('gemini'))  return { color: 'var(--gemini)',  dim: 'var(--gemini-dim)' };
+  if (n.startsWith('codex'))   return { color: 'var(--codex)',   dim: 'var(--codex-dim)' };
+  return { color: 'var(--default)', dim: 'var(--default-dim)' };
+}
+
+function badgeClass(type) {
+  const map = {
+    task: 'badge-task', result: 'badge-result', claim: 'badge-claim',
+    status: 'badge-status', signal: 'badge-signal', belief: 'badge-belief',
+    hire: 'badge-hire', fire: 'badge-fire',
+    'clock-in': 'badge-clock-in', 'clock-out': 'badge-clock-out',
+  };
+  return map[type] || 'badge-default';
+}
+
+function agentLabel(name) {
+  if (!name) return '—';
+  return name.split('/').pop() || name;
+}
+
+function shortId(id) {
+  if (!id) return '?';
+  // If it looks like TASK-N keep it
+  if (/^TASK-\d+/.test(id)) return id;
+  return id.substring(0, 8);
+}
+
+function formatTime(tsStr) {
+  if (!tsStr) return '??:??';
+  try {
+    const d = new Date(tsStr);
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return '??:??'; }
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ---- Fetch wrappers ---- */
+async function apiFetch(path) {
+  const r = await fetch(API_BASE + path);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+/* ---- Render: Agent Workstations ---- */
+function renderAgents(data) {
+  const floor = document.getElementById('floor');
+  const agents = data.agents || [];
+
+  // Only show "real" agents (claude, gemini, codex)
+  const realAgents = agents.filter(a =>
+    a.name && !a.name.startsWith('test/') && a.name !== 'unknown'
+  );
+
+  if (realAgents.length === 0) {
+    floor.innerHTML = '<div class="loading-msg" style="grid-column:1/-1">NO AGENTS REGISTERED</div>';
+    return;
+  }
+
+  floor.innerHTML = realAgents.map(a => {
+    const col = agentColor(a.name);
+    const online = a.online;
+    const roleText = (a.role || 'worker').toUpperCase();
+    const dept = (a.department || 'general').toUpperCase();
+    const taskText = a.current_task
+      ? esc(a.current_task.substring(0, 160))
+      : '<span class="none">No active task</span>';
+
+    return `
+      <div class="workstation" style="--agent-color:${col.color};--agent-dim:${col.dim}">
+        <div class="ws-header">
+          <div class="ws-status-dot ${online ? 'online' : ''}"></div>
+          <div class="ws-agent-name">${esc(a.name)}</div>
+          <div class="ws-role-badge">${esc(roleText)}</div>
+        </div>
+        <div class="ws-task-label">CURRENT TASK</div>
+        <div class="ws-task-text ${a.current_task ? '' : 'none'}">${taskText}</div>
+        <div class="ws-stats">
+          <div class="ws-stat">
+            <div class="ws-stat-value">${a.tasks_completed || 0}</div>
+            <div class="ws-stat-label">COMPLETED</div>
+          </div>
+          <div class="ws-stat">
+            <div class="ws-stat-value">${a.cells_sent || 0}</div>
+            <div class="ws-stat-label">CELLS SENT</div>
+          </div>
+        </div>
+        <div class="ws-last-active">LAST ACTIVE: ${esc(a.last_seen_rel || 'never')}</div>
+      </div>`;
+  }).join('');
+}
+
+/* ---- Render: Task Pipeline ---- */
+function renderTasks(data) {
+  const body = document.getElementById('pipeline-body');
+  const statsEl = document.getElementById('pipeline-stats');
+  const tasks = data.tasks || [];
+  const counts = data.counts || { open: 0, claimed: 0, complete: 0 };
+
+  statsEl.innerHTML = `
+    <span class="stat-pill open">OPEN: ${counts.open}</span>
+    <span class="stat-pill claimed">ACTIVE: ${counts.claimed}</span>
+    <span class="stat-pill complete">DONE: ${counts.complete}</span>
+  `;
+
+  const byStatus = { open: [], claimed: [], complete: [] };
+  tasks.forEach(t => {
+    const s = t.status || 'open';
+    if (byStatus[s]) byStatus[s].push(t);
+  });
+
+  function taskCards(list) {
+    if (list.length === 0) return '<div class="pipeline-empty">EMPTY</div>';
+    return list.map(t => {
+      const agentName = t.claimed_by || t.assigned_to || t.created_by || '—';
+      const col = agentColor(agentName);
+      return `
+        <div class="task-card">
+          <div class="task-card-id" style="color:${col.color}">${esc(shortId(t.id))}</div>
+          <div class="task-card-agent">${esc(agentName)}</div>
+          <div class="task-card-msg">${esc((t.msg_preview || t.msg || '').substring(0, 100))}</div>
+          <div class="task-card-age">${esc(t.age || '')}</div>
+        </div>`;
+    }).join('');
+  }
+
+  body.innerHTML = `
+    <div class="pipeline-columns">
+      <div class="col-open">
+        <div class="pipeline-col-header">OPEN</div>
+        <div class="pipeline-col-cards">${taskCards(byStatus.open)}</div>
+      </div>
+      <div class="col-claimed">
+        <div class="pipeline-col-header">CLAIMED</div>
+        <div class="pipeline-col-cards">${taskCards(byStatus.claimed)}</div>
+      </div>
+      <div class="col-complete">
+        <div class="pipeline-col-header">COMPLETE</div>
+        <div class="pipeline-col-cards">${taskCards(byStatus.complete)}</div>
+      </div>
+    </div>`;
+}
+
+/* ---- Render: Live Cell Feed ---- */
+function renderFeed(data) {
+  const body = document.getElementById('feed-body');
+  const countEl = document.getElementById('feed-count');
+  const cells = data.cells || [];
+
+  countEl.textContent = `${cells.length} cells`;
+
+  if (cells.length === 0) {
+    body.innerHTML = '<div class="loading-msg">NO CELLS IN CHANNEL</div>';
+    return;
+  }
+
+  // Detect truly new cells (not in previous set)
+  const newIds = new Set(cells.map(c => c.id));
+
+  body.innerHTML = cells.map(c => {
+    const col = agentColor(c.from);
+    const isNew = !previousFeedIds.has(c.id);
+    return `
+      <div class="feed-row" style="${isNew ? 'animation:slide-in 0.3s ease;' : ''}">
+        <div class="feed-ts">${formatTime(c.ts)}</div>
+        <div class="feed-agent" style="color:${col.color}">${esc(agentLabel(c.from))}</div>
+        <div class="feed-type-badge ${badgeClass(c.type)}">${esc(c.type || '?')}</div>
+        <div class="feed-msg">${esc(c.msg || '')}</div>
+      </div>`;
+  }).join('');
+
+  previousFeedIds = newIds;
+}
+
+/* ---- Render: Channels Bar ---- */
+function renderChannels(data) {
+  const bar = document.getElementById('channels-bar');
+  const channels = data.channels || [];
+  if (channels.length === 0) {
+    bar.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text3)">NO CHANNELS</div>';
+    return;
+  }
+
+  bar.innerHTML = channels.map(ch => `
+    <div class="ch-pill ${ch.name === currentChannel ? 'active' : ''}"
+         onclick="setChannel('${esc(ch.name)}')">
+      ${esc(ch.name)}<span class="ch-pill-count">${ch.cell_count}</span>
+    </div>`).join('');
+
+  // Also update the select dropdown
+  const select = document.getElementById('channel-select');
+  const current = select.value;
+  const names = channels.map(c => c.name);
+  if (names.length !== select.options.length || !names.every((n, i) => n === select.options[i]?.value)) {
+    select.innerHTML = names.map(n =>
+      `<option value="${esc(n)}" ${n === currentChannel ? 'selected' : ''}>${esc(n)}</option>`
+    ).join('');
+  }
+}
+
+/* ---- Fleet health ---- */
+function updateHealth(agents) {
+  const dot = document.getElementById('health-dot');
+  const label = document.getElementById('health-label');
+  const online = (agents || []).filter(a => a.online).length;
+  const total = (agents || []).length;
+
+  dot.className = 'health-dot';
+  if (total === 0) {
+    label.textContent = 'NO AGENTS';
+  } else if (online === 0) {
+    dot.classList.add('red');
+    label.textContent = 'OFFLINE';
+  } else if (online < total) {
+    dot.classList.add('yellow');
+    label.textContent = `${online}/${total} ONLINE`;
+  } else {
+    dot.classList.add('green');
+    label.textContent = `ALL ${total} ONLINE`;
+  }
+}
+
+/* ---- Tick ---- */
+async function tick() {
+  try {
+    const [agentsData, tasksData, feedData, channelsData] = await Promise.all([
+      apiFetch('/api/agents'),
+      apiFetch(`/api/tasks?channel=${encodeURIComponent(currentChannel)}`),
+      apiFetch(`/api/feed?channel=${encodeURIComponent(currentChannel)}&limit=60`),
+      apiFetch('/api/channels'),
+    ]);
+
+    renderAgents(agentsData);
+    renderTasks(tasksData);
+    renderFeed(feedData);
+    renderChannels(channelsData);
+    updateHealth(agentsData.agents || []);
+
+    document.getElementById('last-updated').textContent =
+      new Date().toLocaleTimeString('en-US', { hour12: false });
+
+  } catch (err) {
+    const dot = document.getElementById('health-dot');
+    dot.className = 'health-dot red';
+    document.getElementById('health-label').textContent = 'SERVER OFFLINE';
+    document.getElementById('last-updated').textContent = 'ERR ' + err.message;
+  }
+}
+
+/* ---- Channel switch ---- */
+function setChannel(name) {
+  currentChannel = name;
+  previousFeedIds = new Set();
+  tick();
+}
+
+function onChannelChange() {
+  const select = document.getElementById('channel-select');
+  setChannel(select.value);
+}
+
+/* ---- Boot ---- */
+tick();
+setInterval(tick, REFRESH_MS);
+</script>
+</body>
+</html>

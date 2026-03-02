@@ -7,7 +7,9 @@
 # Channels: project-scoped e.g. "signx-intel", "signx-warehouse", "keyedin", "general"
 
 COMMS_DIR="C:/tools/agent-comms"
-CHANNELS_DIR="${COMMS_DIR}/channels"
+# Canonical shared channel dir — symlinked from ~/.claude/channels, ~/.gemini/channels, ~/.codex/channels
+# Use COMMS_CHANNELS env override, or fall back to known Windows path
+CHANNELS_DIR="${COMMS_CHANNELS:-C:/Users/Brady.EAGLE/.ai/channels}"
 COMMS_AGENT="${COMMS_AGENT:-unknown}"
 
 _comms_uuid() {
