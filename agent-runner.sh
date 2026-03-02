@@ -262,8 +262,10 @@ invoke_agent() {
       output=$(gemini -p "$prompt" 2>&1) || true
       ;;
     codex)
-      # codex "prompt" -- non-interactive Codex CLI
-      output=$(codex "$prompt" 2>&1) || true
+      # codex "prompt" -- routed through codex-wrap.py for clean output
+      # The wrapper strips progress bars, formats test counts, and ensures
+      # the result cell always contains meaningful content.
+      output=$(echo "$prompt" | python "C:/tools/agent-comms/codex-wrap.py" 2>&1) || true
       ;;
     claude)
       # claude --print "prompt" -- non-interactive Claude Code
@@ -374,6 +376,15 @@ while true; do
       # Truncate output for the msg field (channel cells have practical size limits)
       msg_summary="${agent_output:0:200}"
       [[ ${#agent_output} -gt 200 ]] && msg_summary="${msg_summary}...(truncated)"
+
+      # Output validation: flag suspiciously short responses before writing.
+      # Fewer than 30 chars almost always means the agent echoed an identifier
+      # instead of actual findings (the "TASK-3" / "deployer" garbage problem).
+      if [[ ${#agent_output} -lt 30 ]]; then
+        log "WARNING: agent output is ${#agent_output} chars (< 30) — possible empty response"
+        agent_output="${agent_output} [WARNING: output too short — possible empty response]"
+        msg_summary="${agent_output}"
+      fi
 
       # Write result cell
       result_data=$(python -c "
