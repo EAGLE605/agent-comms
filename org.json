@@ -1,6 +1,12 @@
 {
   "company": "Eagle Sign AI Fleet",
   "updated": "2026-03-01",
+  "hardware": {
+    "machine": "CNC-1 (ASUS ROG Z790, i9-14900K, 64GB DDR5)",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti (16GB VRAM)",
+    "os": "Windows 11 Pro",
+    "local_model_capacity": "Up to 14B params quantized (Q4_K_M) at good speed, 32B params at slower speed"
+  },
 
   "hierarchy": {
     "DIRECTOR": {
@@ -39,6 +45,14 @@
       "type": "Claude Code",
       "cli": "claude",
       "version": "2.1.63",
+      "provider": "Anthropic",
+      "models": {
+        "claude-opus-4-6":   { "tier": "flagship", "cost_input": 15, "cost_output": 75, "context": "200K", "note": "Best reasoning, architecture, complex tasks" },
+        "claude-sonnet-4-6": { "tier": "workhorse", "cost_input": 3, "cost_output": 15, "context": "200K", "note": "Default. Best balance of speed/quality" },
+        "claude-haiku-4-5":  { "tier": "fast", "cost_input": 0.8, "cost_output": 4, "context": "200K", "note": "Fast/cheap for simple tasks, triage, classification" }
+      },
+      "default_model": "claude-sonnet-4-6",
+      "model_flag": "--model <model-id>",
       "strengths": [
         "Architecture and system design",
         "Complex multi-file refactors",
@@ -46,7 +60,8 @@
         "M365 integration via Power Automate",
         "MCP server development",
         "Deep domain reasoning",
-        "Quality review and code critique"
+        "Quality review and code critique",
+        "Agent teams (native teammate spawning)"
       ],
       "weaknesses": [
         "Bulk scanning (slow, expensive per token)",
@@ -55,17 +70,28 @@
       "best_for": ["architecture", "complex-code", "protocol-work", "review", "orchestration"],
       "cost": "high"
     },
+
     "gemini": {
       "type": "Gemini CLI",
       "cli": "gemini",
       "version": "0.31.0",
+      "provider": "Google",
+      "models": {
+        "gemini-2.5-pro":       { "tier": "flagship", "cost_input": 2, "cost_output": 12, "context": "1M", "note": "Deep reasoning, complex coding. Auto-routed for hard prompts" },
+        "gemini-2.5-flash":     { "tier": "workhorse", "cost_input": 0.15, "cost_output": 0.6, "context": "1M", "note": "Fast/cheap. Auto-routed for simple prompts" },
+        "gemini-2.5-flash-lite":{ "tier": "fast", "cost_input": 0.04, "cost_output": 0.15, "context": "1M", "note": "Cheapest, lowest latency" }
+      },
+      "default_model": "auto (routes between flash and pro)",
+      "model_flag": "-m <model-id>",
+      "free_tier": "60 req/min, 1000 req/day with Google account",
       "strengths": [
         "Fast codebase investigation and grep",
         "Bulk data analysis (CSV, DuckDB, large datasets)",
         "Report generation and documentation",
-        "Long-context reads (entire repos)",
+        "1M token context (entire repos)",
         "Schema dumps and auditing",
-        "Dependency analysis and import mapping"
+        "Dependency analysis and import mapping",
+        "FREE tier for most work"
       ],
       "weaknesses": [
         "Complex protocol reverse engineering",
@@ -73,16 +99,47 @@
         "Framework-aware analysis (missed FastAPI decorators)"
       ],
       "best_for": ["scanning", "data-analysis", "auditing", "reports", "bulk-work"],
-      "cost": "low",
+      "cost": "low-to-free",
       "known_mistakes": [
         "Task 9: CSV work codes have NO leading zeros. Always verify format first.",
         "Task 6: FastAPI route handlers are framework-called, not dead code."
       ]
     },
+
+    "codex": {
+      "type": "OpenAI Codex CLI",
+      "cli": "codex",
+      "version": "0.101.0",
+      "provider": "OpenAI",
+      "models": {
+        "o3":              { "tier": "flagship", "cost_input": 2, "cost_output": 8, "context": "200K", "note": "Best reasoning, tool use" },
+        "o4-mini":         { "tier": "workhorse", "cost_input": 0.5, "cost_output": 2, "context": "200K", "note": "Fast reasoning, good for most tasks" },
+        "gpt-4.1":         { "tier": "general", "cost_input": 2, "cost_output": 8, "context": "1M", "note": "Strong instruction following, 1M context" },
+        "gpt-4.1-mini":    { "tier": "fast", "cost_input": 0.4, "cost_output": 1.6, "context": "1M", "note": "Cheap, fast, 1M context" },
+        "gpt-4.1-nano":    { "tier": "nano", "cost_input": 0.1, "cost_output": 0.4, "context": "1M", "note": "Cheapest OpenAI, classification/triage" }
+      },
+      "default_model": "o4-mini",
+      "model_flag": "-m <model-id>",
+      "strengths": [
+        "Fast code generation",
+        "OpenAI model access (o3, o4-mini, GPT-4.1 family)",
+        "Sandboxed execution",
+        "1M context on GPT-4.1 models",
+        "Open source CLI"
+      ],
+      "weaknesses": [
+        "Less architectural reasoning than Claude",
+        "Newer CLI, less battle-tested"
+      ],
+      "best_for": ["code-generation", "one-shot-tasks", "openai-models"],
+      "cost": "medium"
+    },
+
     "openclaw": {
       "type": "OpenClaw",
       "cli": "openclaw",
       "version": "2026.2.26",
+      "provider": "OpenClaw",
       "strengths": [
         "Orchestration and automation",
         "System event broadcasting"
@@ -94,27 +151,11 @@
       "best_for": ["orchestration", "automation"],
       "cost": "low"
     },
-    "codex": {
-      "type": "OpenAI Codex CLI",
-      "cli": "codex",
-      "version": "0.101.0",
-      "strengths": [
-        "Fast code generation",
-        "OpenAI model access (GPT-4o, o3)",
-        "One-shot code tasks",
-        "Sandboxed execution"
-      ],
-      "weaknesses": [
-        "Less architectural reasoning than Claude",
-        "No persistent session context",
-        "Newer CLI, less battle-tested"
-      ],
-      "best_for": ["code-generation", "one-shot-tasks", "openai-models"],
-      "cost": "medium"
-    },
+
     "dispatcher": {
       "type": "Claude Dispatcher (batch)",
       "cli": "node cli.js --print",
+      "location": "C:/Scripts/dispatcher/",
       "strengths": [
         "Offline batch execution",
         "Scheduled task queuing",
@@ -129,6 +170,109 @@
     }
   },
 
+  "not_installed": {
+    "opencode": {
+      "type": "OpenCode CLI",
+      "install": "npm i -g opencode-ai@latest",
+      "provider": "Multi-model (any provider)",
+      "note": "Open source Claude Code alternative. Uses ANY model. 100K+ GitHub stars.",
+      "worth_installing": true,
+      "reason": "Lets us use local/OpenRouter/NVIDIA models with Claude Code-like UX"
+    },
+    "grok-cli": {
+      "type": "Grok CLI (xAI)",
+      "install": "npm i -g @anthropic-ai/grok-cli or pip install grok-cli",
+      "provider": "xAI",
+      "note": "$25 free API credits on signup. OpenAI-compatible API.",
+      "worth_installing": true,
+      "reason": "Free credits, strong reasoning, real-time info via X integration"
+    },
+    "aider": {
+      "type": "Aider",
+      "install": "BLOCKED — C extension build failures on Windows (frozenlist, tiktoken)",
+      "provider": "Multi-model",
+      "note": "Git-aware code editing. Great tool but won't build on this machine.",
+      "worth_installing": false,
+      "reason": "Build broken on Windows with Python 3.13"
+    },
+    "ollama": {
+      "type": "Ollama (local model server)",
+      "install": "winget install Ollama.Ollama",
+      "provider": "Local (RTX 5070 Ti, 16GB VRAM)",
+      "note": "Runs models locally. Zero API cost. 16GB VRAM supports up to 14B params well.",
+      "worth_installing": true,
+      "reason": "Free local inference for bulk/repetitive tasks. Qwen3-Coder-8B, DeepSeek-R1-8B, Llama-3.3-8B"
+    }
+  },
+
+  "model_providers": {
+    "openrouter": {
+      "type": "API gateway to 290+ models",
+      "free_tier": "29 free models, 20 req/min, 200 req/day",
+      "free_models_for_coding": [
+        "qwen/qwen3-coder-480b:free (strongest free coding model)",
+        "deepseek/deepseek-r1:free (reasoning)",
+        "meta-llama/llama-3.3-70b:free (GPT-4 level)",
+        "google/gemma-3-27b:free",
+        "nvidia/nemotron-3-nano-30b:free"
+      ],
+      "paid_highlights": [
+        "anthropic/claude-sonnet-4-6 ($3/$15)",
+        "openai/o3 ($2/$8)",
+        "google/gemini-2.5-pro ($2/$12)"
+      ],
+      "api_key_env": "OPENROUTER_API_KEY",
+      "note": "Single API key for ALL providers. Best for OpenCode/Aider multi-model setups."
+    },
+    "nvidia_nim": {
+      "type": "NVIDIA hosted inference",
+      "url": "build.nvidia.com",
+      "free_tier": "Free credits on signup, Developer Program members get NIM microservices",
+      "notable_models": [
+        "llama-3.1-nemotron-ultra-253b (flagship reasoning)",
+        "llama-3.1-nemotron-nano-4b (edge, fast)",
+        "kimi-k2.5 (free, strong coding)",
+        "deepseek-v3 (free)"
+      ],
+      "api_key_env": "NVIDIA_API_KEY",
+      "note": "OpenAI-compatible API. Free models for development."
+    },
+    "perplexity": {
+      "type": "Web-grounded AI search API",
+      "models": {
+        "sonar":              { "cost_input": 1, "cost_output": 1, "note": "Fast web search, citations included" },
+        "sonar-pro":          { "cost_input": 3, "cost_output": 15, "context": "200K", "note": "Deep research, comprehensive answers" },
+        "sonar-deep-research": { "cost_input": 2, "cost_output": 8, "note": "Multi-step research with reasoning" },
+        "sonar-reasoning-pro": { "note": "Reasoning-focused, best for complex queries" }
+      },
+      "api_key_env": "PERPLEXITY_API_KEY",
+      "mcp_available": "perplexity-agent-mcp (GitHub: Jercik/perplexity-agent-mcp)",
+      "note": "Best for research tasks that need live web data. MCP server integrates with Claude Code/Codex."
+    },
+    "xai": {
+      "type": "xAI Grok API",
+      "free_tier": "$25 free credits on signup (30 day expiry)",
+      "models": {
+        "grok-4":      { "note": "Flagship reasoning" },
+        "grok-4-fast": { "note": "Speed-optimized" },
+        "grok-4.1":    { "note": "Latest iteration" }
+      },
+      "api_key_env": "XAI_API_KEY",
+      "note": "OpenAI-compatible API. Free credits. Real-time info via X integration."
+    },
+    "ollama_local": {
+      "type": "Local inference (RTX 5070 Ti, 16GB VRAM)",
+      "recommended_models": {
+        "qwen2.5-coder:14b":  { "vram": "10-12GB", "speed": "35+ tok/s", "note": "Best local coding model for 16GB VRAM" },
+        "qwen3:8b":           { "vram": "6GB", "speed": "50+ tok/s", "note": "Fast general purpose" },
+        "deepseek-r1:8b":     { "vram": "6GB", "speed": "40+ tok/s", "note": "Reasoning, math, code" },
+        "llama3.3:8b":        { "vram": "6GB", "speed": "45+ tok/s", "note": "Strong all-rounder" },
+        "codellama:13b":      { "vram": "10GB", "speed": "30+ tok/s", "note": "Code specialist" }
+      },
+      "note": "Zero cost. Use for bulk/repetitive tasks, classification, triage. Codex CLI and OpenCode both support --oss flag for local models."
+    }
+  },
+
   "hiring_rules": {
     "when_to_hire": [
       "Workload exceeds current terminal capacity",
@@ -140,8 +284,17 @@
       "Terminal has been idle for 30+ minutes with no pending work",
       "Task is complete and no follow-up work exists",
       "Agent is underperforming (repeated errors, slow throughput)",
-      "Cost optimization — replace expensive agent with cheaper one for simple tasks"
+      "Cost optimization -- replace expensive agent with cheaper one for simple tasks"
     ],
-    "cost_hierarchy": "Use cheapest agent that can do the job. Gemini for scanning, Claude for architecture. Don't send Claude to do Gemini's job."
+    "cost_hierarchy": "Local/free first (Ollama, Gemini free tier, OpenRouter free). Then cheap cloud (Gemini Flash, GPT-4.1-nano). Then mid-tier (Codex o4-mini, Sonnet). Claude Opus ONLY for complex architecture. Don't send Opus to do Haiku's job.",
+    "model_selection": {
+      "triage_classification": "haiku / gpt-4.1-nano / local-8B",
+      "bulk_scanning": "gemini-2.5-flash (free tier) / local qwen2.5-coder:14b",
+      "data_analysis": "gemini-2.5-flash or gemini-2.5-pro",
+      "code_generation": "codex o4-mini / claude-sonnet-4-6",
+      "architecture_review": "claude-opus-4-6 / o3",
+      "web_research": "perplexity sonar-pro",
+      "real_time_info": "grok / perplexity sonar"
+    }
   }
 }
