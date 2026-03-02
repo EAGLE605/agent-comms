@@ -25,13 +25,20 @@ _comms_ensure_channel() {
 _comms_write() {
   local channel="$1" type="$2" msg="$3" data="${4:-"{}"}"
   _comms_ensure_channel "$channel"
-  local id
-  id=$(_comms_uuid)
-  local ts
-  ts=$(_comms_ts)
-  printf '{"id":"%s","from":"%s","ts":"%s","channel":"%s","type":"%s","msg":"%s","data":%s}\n' \
-    "$id" "$COMMS_AGENT" "$ts" "$channel" "$type" "$msg" "$data" \
-    >> "${CHANNELS_DIR}/${channel}.jsonl"
+  python -c "
+import json, uuid, datetime, sys
+obj = {
+    'id': str(uuid.uuid4()),
+    'from': sys.argv[1],
+    'ts': datetime.datetime.now().astimezone().isoformat(),
+    'channel': sys.argv[2],
+    'type': sys.argv[3],
+    'msg': sys.argv[4],
+    'data': json.loads(sys.argv[5])
+}
+with open(sys.argv[6], 'a', encoding='utf-8') as f:
+    f.write(json.dumps(obj, ensure_ascii=False) + '\n')
+" "$COMMS_AGENT" "$channel" "$type" "$msg" "$data" "${CHANNELS_DIR}/${channel}.jsonl"
   echo "sent to ${channel} [${type}]"
 }
 
