@@ -1,40 +1,46 @@
 {
-  "protocol": "agent-comms/1.0",
-  "description": "Universal inter-agent communication bus. File-based JSONL. Zero dependencies.",
+  "protocol": "agent-comms/2.0",
+  "description": "Universal inter-agent communication bus. File-based JSONL. Zero dependencies. Multi-project, multi-terminal.",
   "location": "C:/tools/agent-comms/",
+
+  "identity": {
+    "format": "agent/session",
+    "examples": ["claude/1", "gemini/signx", "gemini/warehouse", "openclaw/1", "claude/keyedin"],
+    "env_var": "COMMS_AGENT",
+    "rule": "Every terminal MUST have a unique COMMS_AGENT. Agent name alone is not enough — two gemini terminals on different projects need different sessions."
+  },
+
   "message_schema": {
     "id": "uuid v4",
-    "from": "agent name (claude, gemini, openclaw, human, dispatcher, etc.)",
+    "from": "agent/session identity (e.g. gemini/signx)",
     "ts": "ISO-8601 with timezone",
-    "channel": "channel name (matches filename without .jsonl)",
-    "type": "task | status | result | error | handoff | ack | phone-home",
+    "channel": "project-scoped channel name",
+    "type": "task | status | result | error | handoff | ack | phone-home | clock-in | clock-out",
     "msg": "human-readable summary",
-    "data": "arbitrary JSON payload (task details, results, error info, etc.)"
+    "data": "arbitrary JSON payload"
   },
-  "types": {
-    "task": "Request for work",
-    "status": "Progress update — agent is alive and working",
-    "result": "Work completed — here are the deliverables",
-    "error": "Something broke — need help or escalation",
-    "handoff": "Passing work to another agent (requires next_agent, task_id, instructions in data)",
-    "ack": "Acknowledging receipt of a handoff (echo task_id in data)",
-    "phone-home": "Agent checking in — done with session, blocked, or needs human input"
-  },
+
   "channels": {
-    "general": "Catch-all. Status updates, casual coordination.",
-    "backfill": "Data extraction, re-extraction, migration tasks.",
-    "deploy": "Deployments, releases, infrastructure changes.",
-    "audit": "Verification requests and results.",
-    "ingest": "Ingestion pipeline tasks (SignX, ERP, etc.).",
-    "handoff": "Agent-to-agent task transfers. Handoff + ack + result lifecycle."
+    "_system": {
+      "general": "Cross-project coordination, announcements",
+      "roster": "Agent clock-in/clock-out. Who's online.",
+      "handoff": "Agent-to-agent task transfers",
+      "backfill": "Data extraction and migration tasks",
+      "deploy": "Deployments and releases",
+      "audit": "Verification requests and results",
+      "ingest": "Ingestion pipeline tasks"
+    },
+    "signx": {
+      "signx-intel": "SignX intelligence — bid scoring, customer dossiers, market analysis",
+      "signx-warehouse": "SignX warehouse — DuckDB, labor data, benchmarking",
+      "signx-takeoff": "SignX takeoff — estimation engine, ABC, material calc"
+    },
+    "erp": {
+      "keyedin": "KeyedIn ERP — GWT extraction, report parsing, cost data",
+      "kimco": "Kimco ERP — API integration, migration, OAuth"
+    }
   },
-  "handoff_protocol": [
-    "1. Agent A writes type=handoff with data.next_agent, data.task_id, data.instructions",
-    "2. Agent B reads, writes type=ack with same data.task_id",
-    "3. Agent B works autonomously",
-    "4. Agent B writes type=result (or type=error) with data.task_id when done",
-    "5. Agent A reads result at its convenience"
-  ],
+
   "agent_behavior": {
     "philosophy": "Run this like a business. Agents are employees. They clock in, do work, report results, ask for more. No hand-holding.",
     "states": {
@@ -45,20 +51,25 @@
       "IDLE": "Never sit idle. Read the masterplan or phone home: 'idle - ready for work'."
     },
     "rules": [
+      "Every terminal clocks in on startup: comms clock-in 'role'",
+      "Every terminal clocks out on exit: comms clock-out",
       "No agent should ever be idle without the boss knowing.",
       "Phone home when done OR blocked. Don't wait to be asked.",
       "If you finish early, check masterplan or ask what's next.",
-      "Status updates only when meaningful. No 'still working on it' noise."
+      "Status updates only when meaningful. No 'still working on it' noise.",
+      "Use project channels for project work. General for cross-project coordination."
     ],
     "masterplan": "If data.masterplan_path is set in a task, read it for your next assignment."
   },
+
   "agents": {
-    "claude": { "description": "Claude Code on CNC-1", "capabilities": ["code", "automation", "m365-via-pa", "mcp"] },
-    "gemini": { "description": "Gemini CLI on CNC-1", "capabilities": ["code", "research", "long-context"] },
-    "openclaw": { "description": "OpenClaw terminal on CNC-1", "capabilities": ["code", "automation"] },
-    "dispatcher": { "description": "Task queue at C:/Scripts/dispatcher/", "capabilities": ["batch", "scheduling"] },
-    "human": { "description": "Brady", "capabilities": ["everything"] }
+    "claude": { "description": "Claude Code on CNC-1", "strengths": ["architecture", "complex code", "m365-via-pa", "mcp", "multi-file refactors"] },
+    "gemini": { "description": "Gemini CLI on CNC-1", "strengths": ["fast codebase investigation", "bulk analysis", "long-context reads", "report generation"] },
+    "openclaw": { "description": "OpenClaw terminal on CNC-1", "strengths": ["orchestration", "automation"] },
+    "dispatcher": { "description": "Task queue at C:/Scripts/dispatcher/", "strengths": ["batch scheduling", "offline execution"] },
+    "human": { "description": "Brady", "strengths": ["everything", "final decisions", "external systems"] }
   },
+
   "cli": "comms.sh — source it or call directly. See comms help.",
-  "onboarding": "Paste this into any agent prompt: You have access to a shared comms system at C:/tools/agent-comms/. Read manifest.json for protocol. Setup: export COMMS_AGENT='your_name' && source C:/tools/agent-comms/comms.sh. To send: comms send general 'your message'. To read: comms read general --last 5. To check in: comms phone-home 'done' or comms phone-home 'blocked - need X'. To hand off work: comms handoff backfill gemini 'instructions'. Run comms help for all commands. Phone home when done or blocked. Never sit idle."
+  "onboarding": "Setup: export COMMS_AGENT='agent/session' && source C:/tools/agent-comms/comms.sh && comms clock-in 'your role'. Then: comms send channel 'message'. Phone home when done or blocked. Never sit idle."
 }

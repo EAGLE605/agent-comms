@@ -2,6 +2,9 @@
 # agent-comms CLI — universal inter-agent communication bus
 # Usage: source comms.sh  (adds 'comms' function)
 #    or: bash comms.sh <command> [args]
+#
+# Identity: COMMS_AGENT = "agent/session" e.g. "claude/1", "gemini/signx", "gemini/warehouse"
+# Channels: project-scoped e.g. "signx-intel", "signx-warehouse", "keyedin", "general"
 
 COMMS_DIR="C:/tools/agent-comms"
 CHANNELS_DIR="${COMMS_DIR}/channels"
@@ -47,41 +50,49 @@ with open(sys.argv[5], 'a', encoding='utf-8') as f:
   fi
 }
 
+# Shared arg parser for send/task/result/error (all identical except type)
+_comms_typed_send() {
+  local type="$1"; shift
+  local channel="$1" msg="$2" data="{}"
+  shift 2 2>/dev/null
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --data) data="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -z "$channel" || -z "$msg" ]]; then
+    echo "usage: comms ${type} <channel> <message> [--data '{}']"
+    return 1
+  fi
+  _comms_write "$channel" "$type" "$msg" "$data"
+}
+
 comms() {
   local cmd="${1:-help}"
   shift 2>/dev/null
 
   case "$cmd" in
 
-    send)
-      # comms send <channel> <message> [--data '{}']
-      local channel="$1" msg="$2" data="{}"
-      shift 2 2>/dev/null
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --data) data="$2"; shift 2 ;;
-          *) shift ;;
-        esac
-      done
-      if [[ -z "$channel" || -z "$msg" ]]; then
-        echo "usage: comms send <channel> <message> [--data '{}']"
-        return 1
-      fi
-      _comms_write "$channel" "status" "$msg" "$data"
-      ;;
+    send)    _comms_typed_send "status" "$@" ;;
+    task)    _comms_typed_send "task" "$@" ;;
+    result)  _comms_typed_send "result" "$@" ;;
+    error)   _comms_typed_send "error" "$@" ;;
 
     read)
-      # comms read <channel> [--last N]
-      local channel="$1" last=10
+      # comms read <channel> [--last N] [--from agent] [--type type]
+      local channel="$1" last=10 filter_from="" filter_type=""
       shift 2>/dev/null
       while [[ $# -gt 0 ]]; do
         case "$1" in
           --last) last="$2"; shift 2 ;;
+          --from) filter_from="$2"; shift 2 ;;
+          --type) filter_type="$2"; shift 2 ;;
           *) shift ;;
         esac
       done
       if [[ -z "$channel" ]]; then
-        echo "usage: comms read <channel> [--last N]"
+        echo "usage: comms read <channel> [--last N] [--from agent] [--type type]"
         return 1
       fi
       local f="${CHANNELS_DIR}/${channel}.jsonl"
@@ -97,70 +108,25 @@ comms() {
       fi
       tail -n "$last" "$f" | python -c "
 import sys, json
+filter_from = '$filter_from'
+filter_type = '$filter_type'
 for line in sys.stdin:
     line = line.strip()
     if not line: continue
     try:
         m = json.loads(line)
-        print(f\"[{m.get('ts','?')[:19]}] {m.get('from','?'):>10} | {m.get('type','?'):>10} | {m.get('msg','')}\")
+        if filter_from and filter_from not in m.get('from', ''): continue
+        if filter_type and m.get('type', '') != filter_type: continue
+        print(f\"[{m.get('ts','?')[:19]}] {m.get('from','?'):>16} | {m.get('type','?'):>10} | {m.get('msg','')}\")
         d = m.get('data', {})
         if d and d != {}:
             for k, v in d.items():
-                print(f\"{'':>24}{k}: {v}\")
+                vstr = str(v)
+                if len(vstr) > 120: vstr = vstr[:120] + '...'
+                print(f\"{'':>30}{k}: {vstr}\")
     except json.JSONDecodeError:
         print(f'  (bad json) {line[:80]}')
 "
-      ;;
-
-    task)
-      # comms task <channel> <message> [--data '{}']
-      local channel="$1" msg="$2" data="{}"
-      shift 2 2>/dev/null
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --data) data="$2"; shift 2 ;;
-          *) shift ;;
-        esac
-      done
-      if [[ -z "$channel" || -z "$msg" ]]; then
-        echo "usage: comms task <channel> <message> [--data '{}']"
-        return 1
-      fi
-      _comms_write "$channel" "task" "$msg" "$data"
-      ;;
-
-    result)
-      # comms result <channel> <message> [--data '{}']
-      local channel="$1" msg="$2" data="{}"
-      shift 2 2>/dev/null
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --data) data="$2"; shift 2 ;;
-          *) shift ;;
-        esac
-      done
-      if [[ -z "$channel" || -z "$msg" ]]; then
-        echo "usage: comms result <channel> <message> [--data '{}']"
-        return 1
-      fi
-      _comms_write "$channel" "result" "$msg" "$data"
-      ;;
-
-    error)
-      # comms error <channel> <message> [--data '{}']
-      local channel="$1" msg="$2" data="{}"
-      shift 2 2>/dev/null
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --data) data="$2"; shift 2 ;;
-          *) shift ;;
-        esac
-      done
-      if [[ -z "$channel" || -z "$msg" ]]; then
-        echo "usage: comms error <channel> <message> [--data '{}']"
-        return 1
-      fi
-      _comms_write "$channel" "error" "$msg" "$data"
       ;;
 
     phone-home)
@@ -179,6 +145,56 @@ for line in sys.stdin:
         return 1
       fi
       _comms_write "$channel" "phone-home" "$msg" "$data"
+      ;;
+
+    clock-in)
+      # comms clock-in [role/project] — register this terminal as active
+      local role="${1:-general}"
+      local data
+      data=$(python -c "import json,sys;print(json.dumps({'role':sys.argv[1],'pid':sys.argv[2]}))" "$role" "$$")
+      _comms_write "roster" "clock-in" "${COMMS_AGENT} online — ${role}" "$data"
+      ;;
+
+    clock-out)
+      # comms clock-out [reason]
+      local reason="${1:-session ended}"
+      _comms_write "roster" "clock-out" "${COMMS_AGENT} offline — ${reason}"
+      ;;
+
+    roster)
+      # comms roster — show who's active (last clock-in without matching clock-out)
+      local f="${CHANNELS_DIR}/roster.jsonl"
+      if [[ ! -f "$f" ]] || [[ $(wc -l < "$f" | tr -d ' ') -eq 0 ]]; then
+        echo "(no agents registered — use 'comms clock-in' to register)"
+        return 0
+      fi
+      echo "=== Active Roster ==="
+      python -c "
+import json
+agents = {}
+with open('$f') as fh:
+    for line in fh:
+        line = line.strip()
+        if not line: continue
+        try:
+            m = json.loads(line)
+            agent = m.get('from', '?')
+            mtype = m.get('type', '')
+            if mtype == 'clock-in':
+                agents[agent] = {'ts': m['ts'], 'role': m.get('data',{}).get('role',''), 'status': 'ACTIVE'}
+            elif mtype == 'clock-out':
+                if agent in agents:
+                    agents[agent]['status'] = 'OFFLINE'
+                    agents[agent]['ts'] = m['ts']
+        except: pass
+if not agents:
+    print('  (empty)')
+else:
+    for agent, info in sorted(agents.items()):
+        marker = 'ON ' if info['status'] == 'ACTIVE' else 'OFF'
+        print(f\"  {marker}  {agent:>20}  {info.get('role',''):20}  last: {info['ts'][:19]}\")
+"
+      echo ""
       ;;
 
     handoff)
@@ -209,7 +225,7 @@ for line in sys.stdin:
       ;;
 
     status)
-      # comms status — show all channels with last message
+      # comms status — all channels grouped by project
       echo "=== Agent Comms Status ==="
       echo ""
       for f in "${CHANNELS_DIR}"/*.jsonl; do
@@ -225,19 +241,24 @@ line = sys.stdin.read().strip()
 if line:
     try:
         m = json.loads(line)
-        print(f\"{m.get('from','?')} | {m.get('type','?')} | {m.get('msg','')[:60]}\")
+        ts = m.get('ts','')[:19]
+        print(f\"{ts}  {m.get('from','?')} | {m.get('type','?')} | {m.get('msg','')[:50]}\")
     except: print('(parse error)')
 " 2>/dev/null)
         fi
-        printf "  %-12s %4s msgs  %s\n" "$ch" "$count" "${last:-(empty)}"
+        printf "  %-22s %4s msgs  %s\n" "$ch" "$count" "${last:-(empty)}"
       done
       echo ""
       ;;
 
     channels)
-      # comms channels — list all channels
+      # comms channels — list all with message counts
       for f in "${CHANNELS_DIR}"/*.jsonl; do
-        basename "$f" .jsonl
+        local ch
+        ch=$(basename "$f" .jsonl)
+        local count
+        count=$(wc -l < "$f" 2>/dev/null | tr -d ' ')
+        printf "  %-22s %s msgs\n" "$ch" "$count"
       done
       ;;
 
@@ -261,33 +282,60 @@ line = sys.stdin.read().strip()
 if line:
     try:
         m = json.loads(line)
-        print(f\"[{m.get('ts','?')[:19]}] {m.get('from','?'):>10} | {m.get('type','?'):>10} | {m.get('msg','')}\")
+        print(f\"[{m.get('ts','?')[:19]}] {m.get('from','?'):>16} | {m.get('type','?'):>10} | {m.get('msg','')}\")
     except: print(line)
 "
       done
+      ;;
+
+    log)
+      # comms log — unified timeline across ALL channels, last N messages
+      local last="${1:-20}"
+      python -c "
+import json, os, glob
+msgs = []
+for f in glob.glob('${CHANNELS_DIR}/*.jsonl'):
+    with open(f) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line: continue
+            try: msgs.append(json.loads(line))
+            except: pass
+msgs.sort(key=lambda m: m.get('ts', ''))
+for m in msgs[-${last}:]:
+    ch = m.get('channel', '?')
+    print(f\"[{m.get('ts','?')[:19]}] {ch:>16} | {m.get('from','?'):>16} | {m.get('type','?'):>10} | {m.get('msg','')[:60]}\")
+"
       ;;
 
     help|*)
       cat <<'EOF'
 agent-comms CLI — universal inter-agent communication bus
 
-Setup:
-  export COMMS_AGENT="claude"    # set your agent name
+Identity:
+  export COMMS_AGENT="claude/1"       # agent/session (e.g. gemini/signx, claude/2)
   source C:/tools/agent-comms/comms.sh
 
+Channels are project-scoped:
+  signx-intel, signx-warehouse, keyedin, kimco, general, roster
+
 Commands:
-  comms send <channel> <message> [--data '{}']   Write a status message
-  comms task <channel> <message> [--data '{}']    Write a task request
-  comms result <channel> <message> [--data '{}']  Write a result
-  comms error <channel> <message> [--data '{}']   Write an error
-  comms phone-home <message> [--channel X]        Check in with the boss
-  comms handoff <channel> <agent> <instructions>  Hand off work
-  comms ack <channel> <task_id>                   Acknowledge a handoff
-  comms read <channel> [--last N]                 Read latest N messages
-  comms status                                    All channels overview
-  comms channels                                  List channel names
-  comms watch <channel>                           Live tail a channel
-  comms help                                      This help
+  comms send <ch> <msg> [--data '{}']        Status message
+  comms task <ch> <msg> [--data '{}']        Request work
+  comms result <ch> <msg> [--data '{}']      Deliver results
+  comms error <ch> <msg> [--data '{}']       Report failure
+  comms phone-home <msg> [--channel X]       Check in with the boss
+  comms handoff <ch> <agent> <instructions>  Hand off work
+  comms ack <ch> <task_id>                   Acknowledge a handoff
+  comms clock-in [role]                      Register terminal as active
+  comms clock-out [reason]                   Mark terminal as offline
+  comms roster                               Who's online
+  comms read <ch> [--last N] [--from X]      Read messages (filter by agent)
+  comms log [N]                              Unified timeline, all channels
+  comms status                               All channels overview
+  comms channels                             List channels with counts
+  comms watch <ch>                           Live tail a channel
+  comms help                                 This help
 
 Agent behavior:
   WORKING  — do your task, no chatter
