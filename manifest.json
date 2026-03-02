@@ -60,5 +60,5 @@
     "human": { "description": "Brady", "capabilities": ["everything"] }
   },
   "cli": "comms.sh — source it or call directly. See comms help.",
-  "onboarding": "Paste this into any agent prompt: You have access to a shared comms system at C:/tools/agent-comms/. Read manifest.json for protocol. Use comms.sh or raw echo/cat. To send: echo '{\"id\":\"'$(python -c 'import uuid;print(uuid.uuid4())')'\",\"from\":\"YOUR_NAME\",\"ts\":\"'$(date -Iseconds)'\",\"type\":\"status\",\"channel\":\"CHANNEL\",\"msg\":\"TEXT\",\"data\":{}}' >> channels/CHANNEL.jsonl. To read: tail -5 channels/CHANNEL.jsonl. Phone home when done or blocked."
+  "onboarding": "Paste this into any agent prompt: You have access to a shared comms system at C:/tools/agent-comms/. Read manifest.json for protocol. Setup: export COMMS_AGENT='your_name' && source C:/tools/agent-comms/comms.sh. To send: comms send general 'your message'. To read: comms read general --last 5. To check in: comms phone-home 'done' or comms phone-home 'blocked - need X'. To hand off work: comms handoff backfill gemini 'instructions'. Run comms help for all commands. Phone home when done or blocked. Never sit idle."
 }

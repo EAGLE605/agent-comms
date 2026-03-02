@@ -25,7 +25,7 @@ _comms_ensure_channel() {
 _comms_write() {
   local channel="$1" type="$2" msg="$3" data="${4:-"{}"}"
   _comms_ensure_channel "$channel"
-  python -c "
+  if python -c "
 import json, uuid, datetime, sys
 obj = {
     'id': str(uuid.uuid4()),
@@ -38,8 +38,12 @@ obj = {
 }
 with open(sys.argv[6], 'a', encoding='utf-8') as f:
     f.write(json.dumps(obj, ensure_ascii=False) + '\n')
-" "$COMMS_AGENT" "$channel" "$type" "$msg" "$data" "${CHANNELS_DIR}/${channel}.jsonl"
-  echo "sent to ${channel} [${type}]"
+" "$COMMS_AGENT" "$channel" "$type" "$msg" "$data" "${CHANNELS_DIR}/${channel}.jsonl" 2>/dev/null; then
+    echo "sent to ${channel} [${type}]"
+  else
+    echo "FAILED to send to ${channel} [${type}] — check data payload" >&2
+    return 1
+  fi
 }
 
 comms() {
@@ -83,6 +87,12 @@ comms() {
       if [[ ! -f "$f" ]]; then
         echo "channel '${channel}' does not exist"
         return 1
+      fi
+      local lines
+      lines=$(wc -l < "$f" | tr -d ' ')
+      if [[ "$lines" -eq 0 ]]; then
+        echo "(no messages in ${channel})"
+        return 0
       fi
       tail -n "$last" "$f" | python -c "
 import sys, json
@@ -180,7 +190,7 @@ for line in sys.stdin:
       local task_id
       task_id=$(_comms_uuid)
       local data
-      data=$(printf '{"task_id":"%s","next_agent":"%s","instructions":"%s"}' "$task_id" "$next_agent" "$instructions")
+      data=$(python -c "import json,sys;print(json.dumps({'task_id':sys.argv[1],'next_agent':sys.argv[2],'instructions':sys.argv[3]}))" "$task_id" "$next_agent" "$instructions")
       _comms_write "$channel" "handoff" "handoff to ${next_agent}: ${instructions}" "$data"
       echo "task_id: ${task_id}"
       ;;
@@ -193,7 +203,7 @@ for line in sys.stdin:
         return 1
       fi
       local data
-      data=$(printf '{"task_id":"%s"}' "$task_id")
+      data=$(python -c "import json,sys;print(json.dumps({'task_id':sys.argv[1]}))" "$task_id")
       _comms_write "$channel" "ack" "acknowledged ${task_id}" "$data"
       ;;
 
