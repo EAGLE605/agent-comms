@@ -870,6 +870,45 @@ count = board.expire()
 print(f'Expired {count} cells')
 "
           ;;
+        trace)
+          # comms hive trace <contract_id> <channel> <outcome> <steps_json>
+          local contract_id="$1" channel="${2:-general}" outcome="${3:-success}" steps="${4:-"[]"}"
+          python -c "
+import sys, json
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+from hive.coordination.memory import record_trace
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell_id = record_trace(board, from_agent=sys.argv[1], contract_id=sys.argv[2], channel=sys.argv[3], steps=json.loads(sys.argv[4]), outcome=sys.argv[5])
+print(cell_id)
+" "$COMMS_AGENT" "$contract_id" "$channel" "$steps" "$outcome"
+          ;;
+        belief)
+          # comms hive belief <channel> <claim> [confidence]
+          local channel="$1" claim="$2" confidence="${3:-0.7}"
+          python -c "
+import sys
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+from hive.coordination.beliefs import assert_belief
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell_id = assert_belief(board, from_agent=sys.argv[1], channel=sys.argv[2], claim=sys.argv[3], confidence=float(sys.argv[4]))
+print(cell_id)
+" "$COMMS_AGENT" "$channel" "$claim" "$confidence"
+          ;;
+        refute)
+          # comms hive refute <belief_id> <reason> [correction]
+          local belief_id="$1" reason="$2" correction="${3:-""}"
+          python -c "
+import sys
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+from hive.coordination.beliefs import refute_belief
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell_id = refute_belief(board, belief_id=sys.argv[1], from_agent=sys.argv[2], channel='general', reason=sys.argv[3], correction=sys.argv[4])
+print(cell_id)
+" "$belief_id" "$COMMS_AGENT" "$reason" "$correction"
+          ;;
         *)
           cat <<'HIVEEOF'
 comms hive -- bridge to HIVE Protocol (Python)
@@ -880,6 +919,9 @@ comms hive -- bridge to HIVE Protocol (Python)
   comms hive task <channel> <title> [spec]       Create a task
   comms hive refs <cell_id>                      Reverse DAG lookup
   comms hive expire                              Remove expired cells
+  comms hive trace <contract_id> <ch> <outcome> <steps_json>  Record trace
+  comms hive belief <channel> <claim> [confidence]            Assert belief
+  comms hive refute <belief_id> <reason> [correction]         Refute a belief
   comms hive help                                This help
 HIVEEOF
           ;;

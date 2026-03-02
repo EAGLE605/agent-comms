@@ -137,6 +137,54 @@ def get_tool_definitions() -> list[dict[str, Any]]:
                 "required": ["from_agent", "channel", "result_id", "contract_id", "score"],
             },
         },
+        {
+            "name": "hive_trace",
+            "description": "Record a reasoning trace for a contract. Stores HOW a problem was solved, not just the result.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "from_agent": {"type": "string"},
+                    "contract_id": {"type": "string", "description": "Contract this trace belongs to"},
+                    "channel": {"type": "string", "default": "general"},
+                    "steps": {"type": "array", "items": {"type": "object"}, "description": "Reasoning steps: [{attempt, action, outcome}]"},
+                    "outcome": {"type": "string", "enum": ["success", "failure", "partial"], "default": "success"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["from_agent", "contract_id"],
+            },
+        },
+        {
+            "name": "hive_belief",
+            "description": "Record an explicit prior belief before acting. Enables surgical correction if wrong.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "from_agent": {"type": "string"},
+                    "channel": {"type": "string", "default": "general"},
+                    "claim": {"type": "string", "description": "What the agent believes to be true"},
+                    "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.7},
+                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "refs": {"type": "array", "items": {"type": "string"}},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["from_agent", "claim"],
+            },
+        },
+        {
+            "name": "hive_refute",
+            "description": "Mark a belief as refuted. Triggers evolution signals for system improvement.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "belief_id": {"type": "string"},
+                    "from_agent": {"type": "string"},
+                    "channel": {"type": "string", "default": "general"},
+                    "reason": {"type": "string"},
+                    "correction": {"type": "string"},
+                },
+                "required": ["belief_id", "from_agent", "reason"],
+            },
+        },
     ]
 
 
@@ -214,6 +262,45 @@ def execute_tool(board: HiveBoard, tool_name: str, args: dict[str, Any]) -> dict
             score=args["score"],
             notes=args.get("notes", ""),
             tags=args.get("tags"),
+        )
+        return {"id": cell_id}
+
+    elif tool_name == "hive_trace":
+        from hive.coordination.memory import record_trace
+        cell_id = record_trace(
+            board,
+            from_agent=args["from_agent"],
+            contract_id=args["contract_id"],
+            channel=args.get("channel", "general"),
+            steps=args.get("steps", []),
+            outcome=args.get("outcome", "success"),
+            tags=args.get("tags"),
+        )
+        return {"id": cell_id}
+
+    elif tool_name == "hive_belief":
+        from hive.coordination.beliefs import assert_belief
+        cell_id = assert_belief(
+            board,
+            from_agent=args["from_agent"],
+            channel=args.get("channel", "general"),
+            claim=args["claim"],
+            confidence=args.get("confidence", 0.7),
+            evidence=args.get("evidence"),
+            refs=args.get("refs"),
+            tags=args.get("tags"),
+        )
+        return {"id": cell_id}
+
+    elif tool_name == "hive_refute":
+        from hive.coordination.beliefs import refute_belief
+        cell_id = refute_belief(
+            board,
+            belief_id=args["belief_id"],
+            from_agent=args["from_agent"],
+            channel=args.get("channel", "general"),
+            reason=args["reason"],
+            correction=args.get("correction"),
         )
         return {"id": cell_id}
 
