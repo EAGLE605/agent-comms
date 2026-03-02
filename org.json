@@ -1,0 +1,122 @@
+{
+  "company": "Eagle Sign AI Fleet",
+  "updated": "2026-03-01",
+
+  "hierarchy": {
+    "DIRECTOR": {
+      "id": "human/brady",
+      "role": "Final decisions, external systems, hiring/firing authority",
+      "note": "The boss. All escalations end here."
+    },
+    "ORCHESTRATOR": {
+      "id": "claude/1",
+      "role": "Fleet coordination, task dispatch, quality review, architecture",
+      "reports_to": "DIRECTOR",
+      "authority": ["hire", "fire", "dispatch", "review", "escalate"]
+    }
+  },
+
+  "departments": {
+    "signx": {
+      "name": "SignX Intelligence",
+      "channels": ["signx-intel", "signx-takeoff", "signx-warehouse"],
+      "mission": "Bid scoring, estimation, customer intelligence, warehouse analytics"
+    },
+    "erp": {
+      "name": "ERP Systems",
+      "channels": ["keyedin", "kimco"],
+      "mission": "KeyedIn extraction, Kimco migration, cost data pipeline"
+    },
+    "ops": {
+      "name": "Operations",
+      "channels": ["general", "backfill", "deploy", "audit", "ingest"],
+      "mission": "Infrastructure, deployments, data ops, fleet coordination"
+    }
+  },
+
+  "agents": {
+    "claude": {
+      "type": "Claude Code",
+      "strengths": [
+        "Architecture and system design",
+        "Complex multi-file refactors",
+        "Protocol reverse engineering (GWT, RPC)",
+        "M365 integration via Power Automate",
+        "MCP server development",
+        "Deep domain reasoning",
+        "Quality review and code critique"
+      ],
+      "weaknesses": [
+        "Bulk scanning (slow, expensive per token)",
+        "Large CSV/data crunching (better suited for Gemini)"
+      ],
+      "best_for": ["architecture", "complex-code", "protocol-work", "review", "orchestration"],
+      "cost": "high"
+    },
+    "gemini": {
+      "type": "Gemini CLI",
+      "strengths": [
+        "Fast codebase investigation and grep",
+        "Bulk data analysis (CSV, DuckDB, large datasets)",
+        "Report generation and documentation",
+        "Long-context reads (entire repos)",
+        "Schema dumps and auditing",
+        "Dependency analysis and import mapping"
+      ],
+      "weaknesses": [
+        "Complex protocol reverse engineering",
+        "Multi-step architectural decisions",
+        "Framework-aware analysis (missed FastAPI decorators)"
+      ],
+      "best_for": ["scanning", "data-analysis", "auditing", "reports", "bulk-work"],
+      "cost": "low",
+      "known_mistakes": [
+        "Task 9: CSV work codes have NO leading zeros. Always verify format first.",
+        "Task 6: FastAPI route handlers are framework-called, not dead code."
+      ]
+    },
+    "openclaw": {
+      "type": "OpenClaw",
+      "strengths": [
+        "Orchestration and automation",
+        "System event broadcasting"
+      ],
+      "weaknesses": [
+        "Deep domain work",
+        "Complex code changes"
+      ],
+      "best_for": ["orchestration", "automation"],
+      "cost": "low"
+    },
+    "dispatcher": {
+      "type": "Claude Dispatcher (batch)",
+      "strengths": [
+        "Offline batch execution",
+        "Scheduled task queuing",
+        "Parallel one-shot tasks"
+      ],
+      "weaknesses": [
+        "No interactive context",
+        "Limited tool access in --print mode"
+      ],
+      "best_for": ["batch", "scheduled", "parallel-oneshots"],
+      "cost": "medium"
+    }
+  },
+
+  "hiring_rules": {
+    "when_to_hire": [
+      "Workload exceeds current terminal capacity",
+      "Task requires a specialist not currently online",
+      "Multiple independent tasks can run in parallel",
+      "A department has zero workers and tasks are queued"
+    ],
+    "when_to_fire": [
+      "Terminal has been idle for 30+ minutes with no pending work",
+      "Task is complete and no follow-up work exists",
+      "Agent is underperforming (repeated errors, slow throughput)",
+      "Cost optimization — replace expensive agent with cheaper one for simple tasks"
+    ],
+    "cost_hierarchy": "Use cheapest agent that can do the job. Gemini for scanning, Claude for architecture. Don't send Claude to do Gemini's job."
+  }
+}
