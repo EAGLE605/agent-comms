@@ -782,6 +782,110 @@ for name, info in org.get('agents', {}).items():
 "
       ;;
 
+    hive)
+      # comms hive <subcommand> [args] -- bridge to HIVE Python package
+      local subcmd="${1:-help}"
+      shift 2>/dev/null
+      case "$subcmd" in
+        put)
+          # comms hive put <type> <channel> <data_json>
+          local cell_type="$1" channel="$2" data="${3:-"{}"}"
+          python -c "
+import sys, json
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell_id = board.put(type=sys.argv[1], from_agent=sys.argv[2], channel=sys.argv[3], data=json.loads(sys.argv[4]))
+print(cell_id)
+" "$cell_type" "$COMMS_AGENT" "$channel" "$data"
+          ;;
+        get)
+          # comms hive get <cell_id>
+          python -c "
+import sys, json
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard, cell_to_dict
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell = board.get(sys.argv[1])
+if cell is None:
+    print('not found')
+    sys.exit(1)
+print(json.dumps(cell_to_dict(cell), indent=2))
+" "$1"
+          ;;
+        query)
+          # comms hive query [--type X] [--channel X] [--limit N]
+          python -c "
+import sys, json
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard, cell_to_dict
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+args = sys.argv[1:]
+kwargs = {}
+i = 0
+while i < len(args):
+    if args[i] == '--type' and i+1 < len(args): kwargs['type'] = args[i+1]; i += 2
+    elif args[i] == '--channel' and i+1 < len(args): kwargs['channel'] = args[i+1]; i += 2
+    elif args[i] == '--from' and i+1 < len(args): kwargs['from_prefix'] = args[i+1]; i += 2
+    elif args[i] == '--since' and i+1 < len(args): kwargs['since'] = args[i+1]; i += 2
+    elif args[i] == '--limit' and i+1 < len(args): kwargs['limit'] = int(args[i+1]); i += 2
+    elif args[i] == '--order' and i+1 < len(args): kwargs['order'] = args[i+1]; i += 2
+    else: i += 1
+cells = board.query(**kwargs)
+for c in cells:
+    print(json.dumps(cell_to_dict(c), ensure_ascii=False))
+" "$@"
+          ;;
+        task)
+          # comms hive task <channel> <title> [spec]
+          local channel="$1" title="$2" spec="${3:-""}"
+          python -c "
+import sys
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cell_id = board.task(from_agent=sys.argv[1], channel=sys.argv[2], title=sys.argv[3], spec=sys.argv[4])
+print(cell_id)
+" "$COMMS_AGENT" "$channel" "$title" "$spec"
+          ;;
+        refs)
+          # comms hive refs <cell_id>
+          python -c "
+import sys, json
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard, cell_to_dict
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+cells = board.refs(sys.argv[1])
+for c in cells:
+    print(json.dumps(cell_to_dict(c), ensure_ascii=False))
+" "$1"
+          ;;
+        expire)
+          python -c "
+import sys
+sys.path.insert(0, '${COMMS_DIR}')
+from hive import HiveBoard
+board = HiveBoard(db_path='${COMMS_DIR}/hive.db', channels_dir='${CHANNELS_DIR}')
+count = board.expire()
+print(f'Expired {count} cells')
+"
+          ;;
+        *)
+          cat <<'HIVEEOF'
+comms hive -- bridge to HIVE Protocol (Python)
+
+  comms hive put <type> <channel> <data_json>   Write a cell
+  comms hive get <cell_id>                       Retrieve a cell
+  comms hive query [--type X] [--channel X] ...  Find cells
+  comms hive task <channel> <title> [spec]       Create a task
+  comms hive refs <cell_id>                      Reverse DAG lookup
+  comms hive expire                              Remove expired cells
+  comms hive help                                This help
+HIVEEOF
+          ;;
+      esac
+      ;;
+
     help|*)
       cat <<'EOF'
 agent-comms CLI — universal inter-agent communication bus
@@ -810,6 +914,14 @@ Messaging:
   comms channels                             List channels with counts
   comms watch <ch>                           Live tail a channel
 
+HIVE Protocol:
+  comms hive put <type> <ch> <data_json>     Write a HIVE cell
+  comms hive get <cell_id>                   Retrieve a cell by ID
+  comms hive query [--type X] [--channel X]  Find cells
+  comms hive task <ch> <title> [spec]        Create a task cell
+  comms hive refs <cell_id>                  Reverse DAG lookup
+  comms hive expire                          Remove expired cells
+
 Organization:
   comms hire <agent/session> <dept> <role>   Hire agent + launch terminal
   comms fire <agent/session> [reason]        Terminate agent
@@ -819,10 +931,10 @@ Organization:
   comms help                                 This help
 
 Agent behavior:
-  WORKING  — do your task, no chatter
-  DONE     — phone home with results
-  BLOCKED  — phone home with what you need
-  IDLE     — check masterplan or phone home 'ready for work'
+  WORKING  -- do your task, no chatter
+  DONE     -- phone home with results
+  BLOCKED  -- phone home with what you need
+  IDLE     -- check masterplan or phone home 'ready for work'
 EOF
       ;;
   esac
