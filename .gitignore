@@ -1,0 +1,5 @@
+# Channel data is ephemeral — don't track message history
+channels/*.jsonl
+
+# Keep the directory itself
+!channels/.gitkeep

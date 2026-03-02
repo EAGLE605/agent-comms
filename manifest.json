@@ -1,0 +1,64 @@
+{
+  "protocol": "agent-comms/1.0",
+  "description": "Universal inter-agent communication bus. File-based JSONL. Zero dependencies.",
+  "location": "C:/tools/agent-comms/",
+  "message_schema": {
+    "id": "uuid v4",
+    "from": "agent name (claude, gemini, openclaw, human, dispatcher, etc.)",
+    "ts": "ISO-8601 with timezone",
+    "channel": "channel name (matches filename without .jsonl)",
+    "type": "task | status | result | error | handoff | ack | phone-home",
+    "msg": "human-readable summary",
+    "data": "arbitrary JSON payload (task details, results, error info, etc.)"
+  },
+  "types": {
+    "task": "Request for work",
+    "status": "Progress update — agent is alive and working",
+    "result": "Work completed — here are the deliverables",
+    "error": "Something broke — need help or escalation",
+    "handoff": "Passing work to another agent (requires next_agent, task_id, instructions in data)",
+    "ack": "Acknowledging receipt of a handoff (echo task_id in data)",
+    "phone-home": "Agent checking in — done with session, blocked, or needs human input"
+  },
+  "channels": {
+    "general": "Catch-all. Status updates, casual coordination.",
+    "backfill": "Data extraction, re-extraction, migration tasks.",
+    "deploy": "Deployments, releases, infrastructure changes.",
+    "audit": "Verification requests and results.",
+    "ingest": "Ingestion pipeline tasks (SignX, ERP, etc.).",
+    "handoff": "Agent-to-agent task transfers. Handoff + ack + result lifecycle."
+  },
+  "handoff_protocol": [
+    "1. Agent A writes type=handoff with data.next_agent, data.task_id, data.instructions",
+    "2. Agent B reads, writes type=ack with same data.task_id",
+    "3. Agent B works autonomously",
+    "4. Agent B writes type=result (or type=error) with data.task_id when done",
+    "5. Agent A reads result at its convenience"
+  ],
+  "agent_behavior": {
+    "philosophy": "Run this like a business. Agents are employees. They clock in, do work, report results, ask for more. No hand-holding.",
+    "states": {
+      "WORKING": "Do your task. No chatter until you have something to report.",
+      "DONE": "Phone home immediately. type=phone-home, msg=what you accomplished.",
+      "BLOCKED": "Phone home immediately. type=phone-home, data.blocked_on=what you need.",
+      "ERROR": "Phone home immediately. type=error, data.error=what broke.",
+      "IDLE": "Never sit idle. Read the masterplan or phone home: 'idle - ready for work'."
+    },
+    "rules": [
+      "No agent should ever be idle without the boss knowing.",
+      "Phone home when done OR blocked. Don't wait to be asked.",
+      "If you finish early, check masterplan or ask what's next.",
+      "Status updates only when meaningful. No 'still working on it' noise."
+    ],
+    "masterplan": "If data.masterplan_path is set in a task, read it for your next assignment."
+  },
+  "agents": {
+    "claude": { "description": "Claude Code on CNC-1", "capabilities": ["code", "automation", "m365-via-pa", "mcp"] },
+    "gemini": { "description": "Gemini CLI on CNC-1", "capabilities": ["code", "research", "long-context"] },
+    "openclaw": { "description": "OpenClaw terminal on CNC-1", "capabilities": ["code", "automation"] },
+    "dispatcher": { "description": "Task queue at C:/Scripts/dispatcher/", "capabilities": ["batch", "scheduling"] },
+    "human": { "description": "Brady", "capabilities": ["everything"] }
+  },
+  "cli": "comms.sh — source it or call directly. See comms help.",
+  "onboarding": "Paste this into any agent prompt: You have access to a shared comms system at C:/tools/agent-comms/. Read manifest.json for protocol. Use comms.sh or raw echo/cat. To send: echo '{\"id\":\"'$(python -c 'import uuid;print(uuid.uuid4())')'\",\"from\":\"YOUR_NAME\",\"ts\":\"'$(date -Iseconds)'\",\"type\":\"status\",\"channel\":\"CHANNEL\",\"msg\":\"TEXT\",\"data\":{}}' >> channels/CHANNEL.jsonl. To read: tail -5 channels/CHANNEL.jsonl. Phone home when done or blocked."
+}
