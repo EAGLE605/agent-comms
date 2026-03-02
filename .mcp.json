@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "hive": {
+      "command": "python",
+      "args": ["-m", "hive.mcp.server", "--db", "C:/tools/agent-comms/hive.db", "--channels", "C:/tools/agent-comms/channels"],
+      "cwd": "C:/tools/agent-comms"
+    }
+  }
+}
