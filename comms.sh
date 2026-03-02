@@ -468,11 +468,19 @@ BOOTEOF
       # Determine working directory
       local launch_dir="${work_dir:-.}"
 
-      # Launch headed terminal via mintty
+      # Launch headed terminal via Windows Terminal (wt.exe)
       local title="${agent_id} [${dept}]"
-      mintty --title "$title" --icon /usr/share/git/git-for-windows.ico \
-        --dir "$launch_dir" \
-        -e /usr/bin/bash -l "$boot_script" &
+      local wt_path
+      wt_path=$(which wt.exe 2>/dev/null)
+      if [[ -n "$wt_path" ]]; then
+        # Windows Terminal — native Windows 11 look
+        wt.exe new-tab --title "$title" --startingDirectory "$launch_dir" \
+          bash -l "$boot_script" &
+      else
+        # Fallback to mintty (Git Bash terminal)
+        mintty --title "$title" --dir "$launch_dir" \
+          -e /usr/bin/bash -l "$boot_script" &
+      fi
 
       echo ""
       echo "  >> Terminal launched: ${title}"
