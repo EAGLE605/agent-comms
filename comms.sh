@@ -153,6 +153,26 @@ for line in sys.stdin:
       local data
       data=$(python -c "import json,sys;print(json.dumps({'role':sys.argv[1],'pid':sys.argv[2]}))" "$role" "$$")
       _comms_write "roster" "clock-in" "${COMMS_AGENT} online — ${role}" "$data"
+      # Show standards on clock-in
+      local standards="${COMMS_DIR}/standards.md"
+      if [[ -f "$standards" ]]; then
+        echo ""
+        echo "=== FLEET STANDARDS (read before working) ==="
+        python -c "
+with open('$standards') as f:
+    for line in f:
+        line = line.rstrip()
+        if line.startswith('# '): print(f'  {line[2:].upper()}')
+        elif line.startswith('## '): print(f'  --- {line[3:]} ---')
+        elif line.startswith('- '): print(f'    {line}')
+        elif line.startswith('|'): pass  # skip tables
+        elif line.strip(): print(f'  {line}')
+" 2>/dev/null
+        echo "  ============================================"
+        echo ""
+      fi
+      # Show current roster
+      comms roster
       ;;
 
     clock-out)
