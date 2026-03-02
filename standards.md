@@ -2,7 +2,7 @@
 **ALL agents read this on clock-in. No exceptions.**
 
 ## Check-In Protocol
-- **Clock in:** `comms clock-in "role"` — every session start
+- **Clock in:** `comms clock-in "role"` -- every session start
 - **Task start:** `comms send <channel> "starting task N: title"`
 - **Task done:** `comms result <channel> "task N done" --data '{"output":"filepath"}'`
 - **Blocked:** `comms phone-home "blocked - need X" --data '{"blocked_on":"description"}'`
@@ -25,7 +25,7 @@ After ANY bug, failure, or correction:
 
 Known fleet lessons:
 - CSV work codes have NO leading zeros ("270" not "0270"). Verify data format BEFORE filtering.
-- FastAPI route handlers appear "DEAD" by grep — they're framework-called. Know your framework.
+- FastAPI route handlers appear "DEAD" by grep -- they're framework-called. Know your framework.
 - Verify row counts with `wc -l` before analysis. If count doesn't match expectations, STOP.
 
 ## Quality Gates (before marking ANY task COMPLETE)

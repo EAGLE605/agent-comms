@@ -159,13 +159,15 @@ for line in sys.stdin:
         echo ""
         echo "=== FLEET STANDARDS (read before working) ==="
         python -c "
-with open('$standards') as f:
+import sys
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+with open('$standards', encoding='utf-8') as f:
     for line in f:
-        line = line.rstrip()
+        line = line.rstrip().replace('\u2014', '--').replace('\u2013', '-')
         if line.startswith('# '): print(f'  {line[2:].upper()}')
         elif line.startswith('## '): print(f'  --- {line[3:]} ---')
         elif line.startswith('- '): print(f'    {line}')
-        elif line.startswith('|'): pass  # skip tables
+        elif line.startswith('|'): pass
         elif line.strip(): print(f'  {line}')
 " 2>/dev/null
         echo "  ============================================"
